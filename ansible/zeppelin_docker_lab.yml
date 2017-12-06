@@ -1,0 +1,90 @@
+---
+- hosts: lab
+  tasks:
+    - name: Ensure workspace dir exists
+      file: path=/home/{{ ansible_env.USER }}/workspace/zeppelin/assets state=directory
+
+    - name: Upload Zeppelin Configurations
+      copy: src=../docker/zeppelin/assets/{{item}} dest=/home/{{ ansible_env.USER }}/workspace/zeppelin/assets/
+      with_items:
+        - shiro.ini
+        - zeppelin-site.xml
+        - zeppelin-env.sh
+
+    - name: Ensure datasets directory exists
+      file: path=/home/{{ ansible_env.USER }}/workspace/datasets/ state=directory
+
+    - name: Upload datasets
+      copy: src=../datasets/{{item}} dest=/home/{{ ansible_env.USER }}/workspace/datasets
+      with_items:
+        - depto.zip
+        - mpio.zip
+        - creditos.csv
+        - SABER_11_2016_-_1_RESULTADOS_SABER_11.csv
+        - SABER_11_2016_-_1_RESULTADOS_SABER_11.json
+        - SABER__11_2016_-_2_RESULTADOS_SABER_11.csv
+        - SABER__11_2016_-_2_RESULTADOS_SABER_11.json
+
+    - name: Upload Zeppelin Dockerfile
+      copy: src=../docker/zeppelin/Dockerfile dest=/home/{{ ansible_env.USER }}/workspace/zeppelin/
+
+    - name: Ensure Docker networks exists
+      docker_network:
+        name: psl-ds-lab-detwork
+        state: present
+
+    - name: Remove previous Zeppelin docker container
+      docker_container:
+        name: zeppelin
+        image: psl/zeppelin:0.7.3
+        state: absent
+
+    - name: Remove previous Zeppelin docker image
+      docker_image:
+        name: psl/zeppelin
+        tag: 0.7.3
+        state: absent
+
+    - name: Build Zeppelin docker image
+      docker_image:
+        path: /home/{{ ansible_env.USER }}/workspace/zeppelin/
+        name: psl/zeppelin
+        tag: 0.7.3
+        push: no
+        nocache: yes
+
+    - name: Run Drill docker container
+      docker_container:
+        name: drill
+        image: sequenceiq/drill
+        command: /etc/bootstrap.sh
+        ports:
+          - "8080:8047"
+        volumes:
+          - "/home/{{ ansible_env.USER }}/workspace/datasets/:/datasets"
+        state: started
+        interactive: yes
+        tty: yes
+        networks:
+          - name: psl-ds-lab-detwork
+            aliases:
+              - drill
+
+    - name: Run Zeppelin docker container
+      docker_container:
+        name: zeppelin
+        image: psl/zeppelin:0.7.3
+        env:
+          AWS_ACCESS_KEY_ID: "{{ aws_access_key }}"
+          AWS_SECRET_ACCESS_KEY: "{{ aws_access_secret }}"
+        ports:
+          - "80:8080"
+        volumes:
+          - "/home/{{ ansible_env.USER }}/workspace/datasets/:/datasets"
+        state: started
+        networks:
+          - name: psl-ds-lab-detwork
+            aliases:
+              - zeppelin
+            links:
+              - drill

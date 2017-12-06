@@ -1,0 +1,10 @@
+.idea/
+*.iml
+*/terraform.tfvars
+*/terraform.tfstate
+*/terraform.tfstate.backup
+terraform/.terraform/
+keys/
+**/*.retry
+**/.DS_Store
+**/*.retry

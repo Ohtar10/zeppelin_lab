@@ -1,0 +1,5 @@
+---
+- hosts: local
+  tasks:
+    - name: Update Host Inventory
+      template: src=./templates/host-inventory.j2 dest=./host-inventory

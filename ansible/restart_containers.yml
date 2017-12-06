@@ -1,0 +1,58 @@
+---
+- hosts: lab
+  tasks:
+    - name: Stop Zeppelin docker container
+      docker_container:
+        name: zeppelin
+        image: psl/zeppelin:0.7.3
+        ports:
+          - "80:8080"
+        volumes:
+          - "/home/{{ ansible_env.USER }}/workspace/datasets/:/datasets"
+        state: stopped
+
+    - name: Stop Drill docker container
+      docker_container:
+        name: drill
+        image: sequenceiq/drill
+        ports:
+          - "8080:8047"
+        volumes:
+          - "/home/{{ ansible_env.USER }}/workspace/datasets/:/datasets"
+        state: stopped
+
+    - name: Run Drill docker container
+      docker_container:
+        name: drill
+        image: sequenceiq/drill
+        command: /etc/bootstrap.sh
+        ports:
+          - "8080:8047"
+        volumes:
+          - "/home/{{ ansible_env.USER }}/workspace/datasets/:/datasets"
+        state: started
+        interactive: yes
+        tty: yes
+        networks:
+          - name: psl-ds-lab-detwork
+            aliases:
+              - drill
+
+    - name: Run Zeppelin docker container
+      docker_container:
+        name: zeppelin
+        image: psl/zeppelin:0.7.3
+        env:
+          AWS_ACCESS_KEY_ID: "{{ aws_access_key }}"
+          AWS_SECRET_ACCESS_KEY: "{{ aws_access_secret }}"
+        ports:
+          - "80:8080"
+        volumes:
+          - "/home/{{ ansible_env.USER }}/workspace/datasets/:/datasets"
+        state: started
+        networks:
+          - name: psl-ds-lab-detwork
+            aliases:
+              - zeppelin
+            links:
+              - drill

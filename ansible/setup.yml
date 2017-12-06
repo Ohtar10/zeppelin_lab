@@ -1,0 +1,37 @@
+---
+- hosts: lab
+  gather_facts: False
+  become: True
+  tasks:
+    - name: Install Python 2
+      raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
+      changed_when: False
+
+    - name: Install tools
+      apt: name={{item}} state=present update_cache=yes
+      with_items:
+        - python-pip
+        - ntp
+        - sysv-rc-conf
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - software-properties-common
+
+- hosts: lab
+  become: True
+  tasks:
+    - name: Install docker-py
+      pip: name=docker-py state=present
+
+    - name: Prepare docker repositories
+      raw: test -e /usr/bin/docker || curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add - && sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+
+    - name: Install docker-ce
+      apt: name=docker-ce state=present update_cache=yes
+
+    - name: Add user to docker group
+      user: name={{ ansible_env.SUDO_USER }} append=yes groups=docker
+
+    - name: Ensure docker service is started
+      service: name=docker state=started enabled=yes
